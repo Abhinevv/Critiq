@@ -7,6 +7,7 @@ import os
 def download_stock_data(ticker: str, period: str = "1y", interval: str = "1d"):
     """
     Downloads stock data and saves it in data/raw with timestamp.
+    Produces a clean CSV with Date as a normal column.
     """
 
     # Download data
@@ -15,6 +16,13 @@ def download_stock_data(ticker: str, period: str = "1y", interval: str = "1d"):
     if data.empty:
         print("No data downloaded.")
         return
+
+    # Flatten MultiIndex columns if present
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
+
+    # Reset index so Date becomes a normal column
+    data.reset_index(inplace=True)
 
     # Create timestamp
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -28,6 +36,6 @@ def download_stock_data(ticker: str, period: str = "1y", interval: str = "1d"):
     filepath = os.path.join(raw_path, filename)
 
     # Save file
-    data.to_csv(filepath)
+    data.to_csv(filepath, index=False)
 
     print(f"Data saved to {filepath}")
