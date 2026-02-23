@@ -5,10 +5,14 @@ from preprocessing.scaler import scale_data
 
 if __name__ == "__main__":
 
-    DOWNLOAD = False
+    tickers = ["AAPL", "MSFT", "NVDA", "GOOGL", "TSLA"]
 
-    if DOWNLOAD:
-        download_stock_data("AAPL", period="1y", interval="1d")
+    # Download data for multiple stocks
+    for ticker in tickers:
+        download_stock_data(ticker, period="1y", interval="1d")
 
+    # Generate combined features
     generate_features()
+
+    # Apply global scaling
     scale_data()

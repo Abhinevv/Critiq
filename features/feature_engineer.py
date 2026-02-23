@@ -3,66 +3,64 @@ import os
 import ta
 
 
-def get_latest_raw_file():
+def generate_features():
+
     raw_path = os.path.join("data", "raw")
+    processed_path = os.path.join("data", "processed")
+    os.makedirs(processed_path, exist_ok=True)
+
     files = [f for f in os.listdir(raw_path) if f.endswith(".csv")]
 
     if not files:
         raise FileNotFoundError("No raw data files found.")
 
-    latest_file = max(
-        files,
-        key=lambda x: os.path.getctime(os.path.join(raw_path, x))
-    )
+    all_data = []
 
-    return os.path.join(raw_path, latest_file)
+    for file in files:
 
+        filepath = os.path.join(raw_path, file)
 
-def generate_features():
-    # Load latest raw file
-    filepath = get_latest_raw_file()
+        # Extract ticker from filename
+        # Assuming filename format like: AAPL_2026-02-22_23-29-47.csv
+        ticker = file.split("_")[0]
 
-    df = pd.read_csv(filepath, index_col=0)
-    df.index = pd.to_datetime(df.index, format="%Y-%m-%d")
+        df = pd.read_csv(filepath)
 
-    # Sort by date
-    df.sort_index(inplace=True)
+        # Ensure Date column exists
+        if "Date" not in df.columns:
+            df.rename(columns={df.columns[0]: "Date"}, inplace=True)
 
-    # Ensure numeric columns
-    df = df.apply(pd.to_numeric, errors="coerce")
+        df["Date"] = pd.to_datetime(df["Date"])
+        df.sort_values("Date", inplace=True)
 
-    # Drop missing values
-    df.dropna(inplace=True)
+        # Convert numeric columns
+        numeric_cols = ["Open", "High", "Low", "Close", "Volume"]
+        df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors="coerce")
 
-    # ===== Add Technical Indicators =====
+        df.dropna(inplace=True)
 
-    # Simple Moving Average
-    df["SMA_20"] = ta.trend.sma_indicator(df["Close"], window=20)
+        # === Technical Indicators ===
+        df["SMA_20"] = ta.trend.sma_indicator(df["Close"], window=20)
+        df["EMA_20"] = ta.trend.ema_indicator(df["Close"], window=20)
+        df["RSI_14"] = ta.momentum.rsi(df["Close"], window=14)
+        df["MACD"] = ta.trend.macd(df["Close"])
+        df["BB_upper"] = ta.volatility.bollinger_hband(df["Close"])
+        df["BB_lower"] = ta.volatility.bollinger_lband(df["Close"])
 
-    # Exponential Moving Average
-    df["EMA_20"] = ta.trend.ema_indicator(df["Close"], window=20)
+        df.dropna(inplace=True)
 
-    # RSI
-    df["RSI_14"] = ta.momentum.rsi(df["Close"], window=14)
+        # Add ticker column
+        df["Ticker"] = ticker
 
-    # MACD
-    df["MACD"] = ta.trend.macd(df["Close"])
+        all_data.append(df)
 
-    # Bollinger Bands
-    df["BB_upper"] = ta.volatility.bollinger_hband(df["Close"])
-    df["BB_lower"] = ta.volatility.bollinger_lband(df["Close"])
+    # Combine all stocks
+    combined_df = pd.concat(all_data, ignore_index=True)
 
-    # Drop NaNs created by rolling indicators
-    df.dropna(inplace=True)
+    # Sort by Date (important for time split later)
+    combined_df.sort_values(["Date", "Ticker"], inplace=True)
 
-    # ===== Save processed data (overwrite mode) =====
+    output_file = os.path.join(processed_path, "combined_features.csv")
+    combined_df.to_csv(output_file, index=False)
 
-    processed_path = os.path.join("data", "processed")
-    os.makedirs(processed_path, exist_ok=True)
-
-    filename = "latest_features.csv"
-    save_path = os.path.join(processed_path, filename)
-
-    df.to_csv(save_path)
-
-    print(f"Processed features saved to {save_path}")
+    print(f"Combined features saved to {output_file}")
