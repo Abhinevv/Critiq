@@ -1,4 +1,19 @@
+# Virtual environment
 venv/
+
+# Python cache
 __pycache__/
-data/raw/*.csv
-data/processed/*.csv
+*.pyc
+
+# Raw & processed data
+data/raw/
+data/processed/
+data/scaled/
+
+# Model artifacts
+models/
+*.pkl
+
+# OS junk
+.DS_Store
+Thumbs.db
